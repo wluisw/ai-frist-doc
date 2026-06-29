@@ -1,33 +1,39 @@
 # AI First Demo — 项目文档
 
-AI First Demo 是一个展示如何使用 Anthropic Claude API 构建现代化 AI 应用的前端演示项目。
+AI First Demo 是一个演示 **AI-First 工程实践**的前端示例应用。
 
 ## 项目简介
 
-基于 Next.js 16 + React 19 + TypeScript 构建，集成 Claude claude-sonnet-4-6 模型，实现了实时流式 AI 对话功能。
+基于 **Vite + React 18 + TypeScript** 构建的单页 Web 应用（SPA），展示在 AI-First harness 约束下如何
+开发前端：特性开关、AI 评审、Triage 自愈、Goal Loop 认知护栏。
 
-## 功能特性
+本文档仓库（`ai-frist-doc`）是跨服务共享的**唯一事实来源**，通过 git submodule 挂到各代码仓的 `docs/`
+目录。前端仓 `ai-first-demo` 的仓内 `CLAUDE.md` 描述仓级细节，本仓描述跨服务共识。
 
-- **AI 对话**：基于 Claude API 的多轮上下文对话，支持实时流式输出
-- **现代化 UI**：玻璃态设计，深色主题，响应式布局
-- **安全架构**：API Key 保存在服务端，前端不暴露任何密钥
-- **流式响应**：SSE (Server-Sent Events) 实现 token 级实时推送
+## 核心特性
+
+- **特性开关**：每个新功能藏在 `flags/feature-flags.ts` 后，fail-safe 默认关闭，支持 kill switch
+- **AI 评审**：每个 PR 过 security / performance / quality 多趟 AI 评审，BLOCK 级问题开发期即拦
+- **Triage 自愈**：错误按指纹聚类、九维打分、自动去重建单，goal loop 推到可验证停止条件
+- **认知护栏**：comprehension-coverage / pr-read-rate / agent-modification-rate 三项指标防止「没看懂就合并」
+- **多模型支持**：模型无关架构，切厂商只需两个 env，详见 [多模型适配](./多模型适配.md)
 
 ## 技术栈
 
 | 技术 | 版本 | 用途 |
 |------|------|------|
-| Next.js | 16.x | 全栈框架，App Router |
-| React | 19.x | UI 框架 |
-| TypeScript | 5.x | 类型安全 |
-| Tailwind CSS | 4.x | 样式系统 |
-| @anthropic-ai/sdk | latest | Claude API 客户端 |
+| Vite | 5.x | 构建工具，开发服务器 |
+| React | 18.x | UI 框架 |
+| TypeScript | 5.x（strict） | 类型安全 |
+| pnpm | 9.x | 包管理器（workspace） |
+| Vitest | latest | 单元测试 |
+| Playwright | latest | E2E 测试（关键路径） |
 
-## 仓库结构
+## 仓库结构（多仓体系）
 
 ```
-ai-first-demo/          # 主前端项目
-ai-frist-doc/           # 项目文档
+ai-first-demo/          ← 前端代码仓（git submodule: docs/ → ai-frist-doc）
+ai-frist-doc/           ← 共享 docs-repo（本仓）
 ```
 
 ---
@@ -36,29 +42,28 @@ ai-frist-doc/           # 项目文档
 
 ## 前置要求
 
-- Node.js 18+
-- npm 或 pnpm
-- Anthropic API Key（[获取地址](https://console.anthropic.com)）
+- Node.js 20+
+- pnpm 9+（`npm i -g pnpm`）
 
 ## 安装步骤
 
 ```bash
-# 克隆主项目
-git clone https://github.com/wluisw/ai-first-demo.git
+# 克隆含 submodule 的前端仓
+git clone --recurse-submodules https://github.com/wluisw/ai-first-demo.git
 cd ai-first-demo
 
-# 安装依赖
-npm install
+# 安装依赖（pnpm workspace）
+pnpm install
 
-# 配置环境变量
-cp .env.local.example .env.local
-# 编辑 .env.local，填入你的 ANTHROPIC_API_KEY
-
-# 启动开发服务器
-npm run dev
+# 启动开发服务器（Vite，默认 http://localhost:5173）
+pnpm dev
 ```
 
-访问 [http://localhost:3000](http://localhost:3000) 查看效果。
+已克隆但未拉取 submodule：
+
+```bash
+git submodule update --init --recursive
+```
 
 ---
 
@@ -67,73 +72,106 @@ npm run dev
 ## 目录结构
 
 ```
-src/
-├── app/
-│   ├── layout.tsx          # 根布局
-│   ├── page.tsx            # 首页（Landing Page）
-│   ├── chat/
-│   │   └── page.tsx        # AI 对话页面
-│   ├── features/
-│   │   └── page.tsx        # 功能特性页面
-│   ├── api/
-│   │   └── chat/
-│   │       └── route.ts    # Claude API 代理路由
-│   └── globals.css         # 全局样式
-└── components/
-    ├── Navbar.tsx           # 导航栏
-    └── ChatInterface.tsx    # 聊天界面客户端组件
+apps/web/                   # 前端主应用（Vite + React + TS）
+  src/
+    components/             # 可复用 UI 组件（Hero, PillarCard, MetricsPanel…）
+    lib/flags.ts            # 前端侧特性开关读取器（Vite env 注入）
+    App.tsx                 # 根组件
+    main.tsx                # 挂载入口
+  index.html                # HTML 模板
+  vite.config.ts            # 构建配置
+
+flags/feature-flags.ts      # 特性开关封装（发布安全阀，集中登记）
+docs/                       # ← git submodule → ai-frist-doc（本仓）
+.github/workflows/          # CI/CD + AI 评审工作流
+scripts/                    # harness 自动化（triage / goal-loop / token 报告）
+state/                      # agent 外置记忆（append-only，入仓可审计）
+prompts/                    # 任务模板与评审 prompt
+.claude/agents/             # sub-agent 角色配置（explorer/implementer/verifier…）
+.claude/skills/             # 按域拆分的项目知识（clean-code/secure-coding…）
 ```
 
-## 核心流程
+## 开发命令
 
-```
-用户输入
-    ↓
-ChatInterface (Client Component)
-    ↓
-POST /api/chat (Next.js Route Handler)
-    ↓
-Anthropic Claude API (流式)
-    ↓
-SSE Stream → 前端实时渲染
-```
+| 命令 | 说明 |
+|------|------|
+| `pnpm dev` | 启动 Vite 开发服务器（http://localhost:5173） |
+| `pnpm build` | 生产构建 |
+| `pnpm test` | Vitest 单元测试 |
+| `pnpm typecheck` | TypeScript 类型检查 |
+| `pnpm lint` | ESLint 代码规范检查 |
 
 ---
 
-# API 参考
+# AI-First Harness 说明
 
-## POST /api/chat
+## 特性开关
 
-处理 AI 对话请求，返回流式 SSE 响应。
+所有新功能必须藏在开关后。发布节奏：
 
-### 请求
+```
+团队开（teamOnly: true）
+  → 灰度放量（rolloutPct: 5 → 25 → 50）
+  → 全量（rolloutPct: 100）
+  → 或 kill switch（enabled: false，即时关闭，无需部署）
+```
 
-```json
-{
-  "messages": [
-    { "role": "user", "content": "你好" },
-    { "role": "assistant", "content": "你好！有什么我可以帮到你的？" },
-    { "role": "user", "content": "帮我写一首诗" }
-  ]
+前端读取方式（Vite 环境变量注入）：
+
+```typescript
+import { FLAGS, isEnabled } from './lib/flags';
+
+if (isEnabled(FLAGS.LIVE_METRICS_PANEL)) {
+  // 功能代码
 }
 ```
 
-### 响应
+开启方式：
 
-SSE 流格式：
-
-```
-data: {"text": "春"}
-data: {"text": "风"}
-data: {"text": "送"}
-data: [DONE]
+```bash
+VITE_FLAG_live_metrics_panel=true pnpm dev
 ```
 
-### 错误响应
+## Sub-Agents
 
-```
-data: {"error": "错误信息"}
-```
+角色化 agent，见 `.claude/agents/`：
+
+| Agent | 模型层 | 职责 |
+|-------|--------|------|
+| explorer | Haiku | 快速定位代码 |
+| implementer | Sonnet | 写代码 |
+| verifier-security | Sonnet | 安全评审 |
+| verifier-quality | Sonnet | 质量评审 |
+| verifier-performance | Sonnet | 性能评审 |
+| verifier-dependency | Sonnet | 依赖评审 |
+| checker | Sonnet | 判定 done（独立于 implementer） |
+| triage-scorer | Sonnet | 九维打分 |
+
+## Skills
+
+项目知识按域拆分，见 `.claude/skills/`。规范 skill 强制加载规则：
+
+| 场景 | 必读 skill |
+|------|-----------|
+| 用户输入 / 鉴权 / 密钥 | `secure-coding` |
+| 外部调用 / 缓存 / 日志 | `performance-review` |
+| 改接口 | `api-doc-output` |
+| 改数据模型 | `data-model-output` |
+| 任何改动底线 | `clean-code` + `testing-standards` + `feature-flag-setup` |
+
+## Goal Loop
+
+`scripts/goal_loop.py`：implementer 推一步 → checker（独立 sub-agent）判定 done → 循环直到停止条件成立。长任务、回归修复、CI 自愈都套这个范式。
+
+## State（外置记忆）
+
+`state/` 目录，append-only，入仓可审计：
+
+- `triage-history.jsonl` — triage 去重历史
+- `token-usage.jsonl` — token 花费记录
+- `comprehension-log.jsonl` — 认知护栏指标
+- `tasks/<id>.json` — 任务状态
+- `known-flakes.txt` — 已知 flake 测试（自动降权）
 
 ---
 
@@ -141,66 +179,36 @@ data: {"error": "错误信息"}
 
 | 变量名 | 必填 | 说明 |
 |--------|------|------|
-| `ANTHROPIC_API_KEY` | 是 | Anthropic API 密钥 |
+| `LLM_PROVIDER` | 否 | 模型厂商（默认 `anthropic`），详见 [多模型适配](./多模型适配.md) |
+| `LLM_API_KEY` | 是 | 对应厂商的 API Key |
+| `STATSIG_SERVER_SECRET` | 否 | Statsig 特性开关 provider（省略则用本地 LocalProvider） |
+| `VITE_FLAG_<key>` | 否 | 构建时注入前端特性开关（如 `VITE_FLAG_live_metrics_panel=true`） |
 
 ---
 
 # 部署
 
-## Vercel 部署（推荐）
+合并到 `main` 后六阶段流水线自动部署（见 `.github/workflows/deploy.yml`）：
 
-1. Fork 仓库到你的 GitHub
-2. 在 [Vercel](https://vercel.com) 导入项目
-3. 在 Environment Variables 中添加 `ANTHROPIC_API_KEY`
-4. 点击 Deploy
-
-## 自托管
-
-```bash
-# 构建生产版本
-npm run build
-
-# 启动生产服务器
-npm start
-```
-
----
-
-# 开发指南
-
-## 添加新功能
-
-### 扩展 AI 能力
-
-修改 `src/app/api/chat/route.ts` 中的系统提示词和模型参数：
-
-```typescript
-const anthropicStream = await client.messages.stream({
-  model: "claude-sonnet-4-6",   // 或 "claude-opus-4-7"
-  max_tokens: 8192,
-  system: "你的自定义系统提示词",
-  messages,
-});
-```
-
-### 添加新页面
-
-在 `src/app/` 下创建新目录，添加 `page.tsx` 文件，然后在 `Navbar.tsx` 中添加导航链接。
-
-## 代码规范
-
-- 所有组件使用 TypeScript
-- 客户端交互组件使用 `"use client"` 指令
-- 样式使用 Tailwind CSS 工具类
-- API 路由放在 `src/app/api/` 下
+1. 构建（`pnpm build`）
+2. 类型检查 + lint
+3. 单元测试（Vitest）
+4. E2E 测试（Playwright）
+5. AI 评审门禁（security / quality / performance / dependency）
+6. 发布 + 熔断监控（指标恶化自动回退）
 
 ---
 
 # 更新日志
 
-## v0.1.0 (2025-06-30)
+## v0.2.0 (2026-06-30)
 
-- 初始项目搭建
-- 实现 Claude API 流式对话
-- 创建首页、对话页、功能页
-- 完成基础 UI 设计
+- 切换为 Vite + React 18 + TypeScript 单页应用架构
+- 引入 AI-First harness（特性开关、AI 评审、Triage 自愈、Goal Loop）
+- 多模型支持（Anthropic / OpenAI / DeepSeek / Qwen / Kimi / GLM）
+- 共享 docs-repo 以 git submodule 形式挂载（`docs/`）
+- Sub-agent 角色化配置（explorer / implementer / verifier / checker）
+
+## v0.1.0 (2026-06-29)
+
+- 初始 Next.js 原型（已废弃，切换为 Vite 架构）
